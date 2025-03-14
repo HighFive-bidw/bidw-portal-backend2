@@ -1,0 +1,6 @@
+rootProject.name = 'bidw-portal'
+
+include 'common'
+include 'auth'
+include 'report'
+include 'subscription'

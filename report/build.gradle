@@ -1,0 +1,13 @@
+dependencies {
+    implementation project(':common')
+    
+    // Excel 파일 생성을 위한 라이브러리
+    implementation 'org.apache.poi:poi:5.2.3'
+    implementation 'org.apache.poi:poi-ooxml:5.2.3'
+    
+    // Azure Blob Storage 연동을 위한 라이브러리
+    implementation 'com.azure:azure-storage-blob:12.25.1'
+}
+bootJar {
+    archiveFileName = "report-service.jar"
+}
