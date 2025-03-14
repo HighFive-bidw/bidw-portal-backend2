@@ -8,9 +8,9 @@ spring:
   application:
     name: report-service
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:reportdb}
-    username: ${POSTGRES_USER:postgres}
-    password: ${POSTGRES_PASSWORD:postgres}
+    url: jdbc:postgresql://${POSTGRES_HOST:20.249.114.225}:${POSTGRES_PORT:5432}/${POSTGRES_DB:reportdb}
+    username: ${POSTGRES_USER:user}
+    password: ${POSTGRES_PASSWORD:Passw0rd}
   jpa:
     hibernate:
       ddl-auto: ${JPA_DDL_AUTO:update}
@@ -22,9 +22,12 @@ spring:
 
 azure:
   storage:
-    connection-string: ${AZURE_STORAGE_CONNECTION_STRING}
+    connection-string: ${AZURE_STORAGE_CONNECTION_STRING:DefaultEndpointsProtocol=https;AccountName=high5bidwstorage;AccountKey=ytnU1SOxqHouIG5WB0vTaD9phcUIgT/sSX/6vE5YlN3rAuFkhct3ijEK4B6hNOocAQl0uSf6ZRKI+AStzzycdw==;BlobEndpoint=https://high5bidwstorage.blob.core.windows.net/;}
+    #connection-string: ${AZURE_STORAGE_CONNECTION_STRING}
     container:
       reports: ${AZURE_CONTAINER_REPORTS:reports}
+
+
 
 file:
   storage:
@@ -44,3 +47,20 @@ springdoc:
 logging:
   level:
     com.ktds.bidw.report: ${LOG_LEVEL:DEBUG}
+
+# Actuator 설정
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  health:
+    livenessState:
+      enabled: true
+    readinessState:
+      enabled: true
