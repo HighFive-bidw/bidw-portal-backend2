@@ -14,7 +14,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ReportInfo {
-
     @JsonProperty("reportId")
     private Long id;
     @JsonProperty("reportName")
