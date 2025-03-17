@@ -31,6 +31,13 @@ podTemplate(
         def manifest = "deploy.yaml"
         def namespace
         def services = ['auth', 'report', 'subscription']
+        
+        // 서비스별 JAR 파일 이름 매핑
+        def jarFileMap = [
+            'auth': 'auth_service.jar',
+            'report': 'report_service.jar',
+            'subscription': 'subscription_service.jar'
+        ]
 
         stage("Get Source") {
             checkout scm
@@ -70,11 +77,24 @@ podTemplate(
                     sh "podman login ${props.registry} --username \$USERNAME --password \$PASSWORD"
 
                     services.each { service ->
+                        def jarFileName = jarFileMap[service]
+                        
                         sh """
-                            podman build \
-                                --build-arg BUILD_LIB_DIR="${service}/build/libs" \
-                                --build-arg ARTIFACTORY_FILE="${service}_service.jar" \
-                                -f deployment/container/Dockerfile \
+                            # 현재 워크스페이스의 절대 경로 가져오기
+                            WORKSPACE=\$(pwd)
+                            echo "Current workspace: \${WORKSPACE}"
+                            
+                            # JAR 파일 존재 여부 확인
+                            BUILD_DIR="\${WORKSPACE}/${service}/build/libs"
+                            echo "Looking for JAR in: \${BUILD_DIR}"
+                            ls -la \${BUILD_DIR}/ || echo "Directory not found or empty"
+                            
+                            # 빌드 및 푸시
+                            echo "Building image for ${service} using JAR: ${jarFileName}"
+                            podman build \\
+                                --build-arg BUILD_LIB_DIR="\${WORKSPACE}/${service}/build/libs" \\
+                                --build-arg ARTIFACTORY_FILE="${jarFileName}" \\
+                                -f \${WORKSPACE}/deployment/container/Dockerfile \\
                                 -t ${props.registry}/${props.image_org}/${service}:${imageTag} .
 
                             podman push ${props.registry}/${props.image_org}/${service}:${imageTag}
