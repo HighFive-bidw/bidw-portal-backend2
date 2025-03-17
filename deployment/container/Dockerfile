@@ -1,10 +1,10 @@
 # Build stage
-#FROM openjdk:23-oraclelinux8 AS builder
-#ARG BUILD_LIB_DIR
-#ARG ARTIFACTORY_FILE
-#COPY ${BUILD_LIB_DIR}/${ARTIFACTORY_FILE} app.jar
 FROM openjdk:23-oraclelinux8 AS builder
-COPY *.jar app.jar
+ARG BUILD_LIB_DIR
+ARG ARTIFACTORY_FILE
+COPY ${BUILD_LIB_DIR}/${ARTIFACTORY_FILE} app.jar
+#FROM openjdk:23-oraclelinux8 AS builder
+#COPY *.jar app.jar
 
 
 # Run stage
