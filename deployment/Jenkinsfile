@@ -34,9 +34,9 @@ podTemplate(
         
         // 서비스별 JAR 파일 이름 매핑
         def jarFileMap = [
-            'auth': 'auth_service.jar',
-            'report': 'report_service.jar',
-            'subscription': 'subscription_service.jar'
+            'auth': 'auth-service.jar',
+            'report': 'report-service.jar',
+            'subscription': 'subscription-service.jar'
         ]
 
         stage("Get Source") {
