@@ -48,6 +48,7 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**", "/api/reports/**", "/api/subscriptions/**","/swagger-ui/**", "/swagger-ui.html", "/api-docs/**", "/actuator/**").permitAll()
+//                .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/api-docs/**", "/actuator/**").permitAll()
                 .anyRequest().authenticated()
             );
         
@@ -65,6 +66,7 @@ public class SecurityConfig {
                 .collect(Collectors.toList());
 
         configuration.setAllowedOriginPatterns(origins);
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:[*]"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("authorization", "content-type", "x-auth-token"));
         configuration.setExposedHeaders(Arrays.asList("x-auth-token"));

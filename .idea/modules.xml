@@ -2,7 +2,10 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/common/bidw-portal.common.iml" filepath="$PROJECT_DIR$/.idea/modules/common/bidw-portal.common.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/auth/bidw-portal.auth.main.iml" filepath="$PROJECT_DIR$/.idea/modules/auth/bidw-portal.auth.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/common/bidw-portal.common.main.iml" filepath="$PROJECT_DIR$/.idea/modules/common/bidw-portal.common.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/report/bidw-portal.report.main.iml" filepath="$PROJECT_DIR$/.idea/modules/report/bidw-portal.report.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/subscription/bidw-portal.subscription.main.iml" filepath="$PROJECT_DIR$/.idea/modules/subscription/bidw-portal.subscription.main.iml" />
     </modules>
   </component>
 </project>
