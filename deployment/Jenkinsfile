@@ -135,9 +135,9 @@ podTemplate(
                     kubectl apply -f deployment/${manifest}
 
                     echo "Waiting for deployments to be ready..."
-                    kubectl -n ${namespace} wait --for=condition=available deployment/bidw-auth --timeout=300s
-                    kubectl -n ${namespace} wait --for=condition=available deployment/bidw-report --timeout=300s
-                    kubectl -n ${namespace} wait --for=condition=available deployment/bidw-subscription --timeout=300s
+                    kubectl -n ${namespace} wait --for=condition=available deployment/auth --timeout=300s
+                    kubectl -n ${namespace} wait --for=condition=available deployment/report --timeout=300s
+                    kubectl -n ${namespace} wait --for=condition=available deployment/subscription --timeout=300s
                     
                     echo "Getting ingress status..."
                     kubectl -n ${namespace} get ingress
