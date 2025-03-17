@@ -1,5 +1,6 @@
 package com.ktds.bidw.subscription.domain;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -13,8 +14,10 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ReportInfo {
-    
+
+    @JsonProperty("reportId")
     private Long id;
+    @JsonProperty("reportName")
     private String name;
     private LocalDateTime lastUpdated;
 }
