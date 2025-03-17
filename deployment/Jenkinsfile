@@ -92,9 +92,9 @@ podTemplate(
                             # 빌드 및 푸시
                             echo "Building image for ${service} using JAR: ${jarFileName}"
                             podman build \\
-                                --build-arg BUILD_LIB_DIR="\${WORKSPACE}/${service}/build/libs" \\
+                                --build-arg BUILD_LIB_DIR="${service}/build/libs" \\
                                 --build-arg ARTIFACTORY_FILE="${jarFileName}" \\
-                                -f \${WORKSPACE}/deployment/container/Dockerfile \\
+                                -f deployment/container/Dockerfile \\
                                 -t ${props.registry}/${props.image_org}/${service}:${imageTag} .
 
                             podman push ${props.registry}/${props.image_org}/${service}:${imageTag}
