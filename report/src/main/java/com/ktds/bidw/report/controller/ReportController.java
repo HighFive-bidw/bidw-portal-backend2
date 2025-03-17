@@ -2,17 +2,19 @@ package com.ktds.bidw.report.controller;
 
 import com.ktds.bidw.report.dto.DownloadResponse;
 import com.ktds.bidw.report.dto.ReportDetailDTO;
-import com.ktds.bidw.report.dto.ReportFilterRequest;
 import com.ktds.bidw.report.dto.ReportListDTO;
 import com.ktds.bidw.report.service.ReportService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import java.time.LocalDate;
 import java.util.List;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.PathVariable; // 경로 변수 사용시
 
 /**
  * 리포트 관련 API 컨트롤러입니다.
@@ -40,16 +42,25 @@ public class ReportController {
     /**
      * 날짜로 필터링된 리포트 목록을 조회합니다.
      *
-     * @param request 필터링 조건
      * @return 필터링된 리포트 목록
      */
+    /*
     @GetMapping("/filter")
     @Operation(summary = "리포트 필터링", description = "날짜 기준으로 필터링된 리포트 목록을 조회합니다.")
     public ResponseEntity<List<ReportListDTO>> getFilteredReports(@RequestBody ReportFilterRequest request) {
         List<ReportListDTO> reports = reportService.getFilteredReports(request.getStartDate(), request.getEndDate());
         return ResponseEntity.ok(reports);
     }
-    
+    */
+    @GetMapping("/filter")
+    @Operation(summary = "리포트 필터링", description = "날짜 기준으로 필터링된 리포트 목록을 조회합니다.")
+    public ResponseEntity<List<ReportListDTO>> getFilteredReports(
+            @RequestParam(name = "startDate") @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate startDate,
+            @RequestParam(name = "endDate") @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate endDate) {
+        List<ReportListDTO> reports = reportService.getFilteredReports(startDate, endDate);
+        return ResponseEntity.ok(reports);
+    }
+
     /**
      * 특정 리포트의 상세 정보를 조회합니다.
      *
