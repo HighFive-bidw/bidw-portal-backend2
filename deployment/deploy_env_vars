@@ -2,7 +2,7 @@
 # Team Settings
 teamid=high5
 root_project=bidw-portal-backend2
-namespace=${teamid}-lifesub-ns
+namespace=${teamid}-bidw-ns
 
 # Container Registry Settings
 registry=high5cr.azurecr.io
