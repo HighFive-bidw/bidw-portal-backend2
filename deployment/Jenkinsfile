@@ -1,0 +1,128 @@
+// Jenkinsfile
+def PIPELINE_ID = "${env.BUILD_NUMBER}"
+
+def getImageTag() {
+    def dateFormat = new java.text.SimpleDateFormat('yyyyMMddHHmmss')
+    def currentDate = new Date()
+    return dateFormat.format(currentDate)
+}
+
+podTemplate(
+    label: "${PIPELINE_ID}",
+    serviceAccount: 'jenkins',
+    containers: [
+        containerTemplate(name: 'podman', image: "mgoltzsche/podman", ttyEnabled: true, command: 'cat', privileged: true),
+        containerTemplate(name: 'gradle',
+                        image: 'gradle:jdk21',
+                        ttyEnabled: true,
+                        command: 'cat'),
+        containerTemplate(name: 'azure-cli', image: 'hiondal/azure-kubectl:latest', command: 'cat', ttyEnabled: true),
+        containerTemplate(name: 'envsubst', image: "hiondal/envsubst", command: 'sleep', args: '1h')
+    ],
+    volumes: [
+        emptyDirVolume(mountPath: '/home/gradle/.gradle', memory: false),
+        emptyDirVolume(mountPath: '/root/.azure', memory: false),
+        emptyDirVolume(mountPath: '/run/podman', memory: false)
+    ]
+) {
+    node(PIPELINE_ID) {
+        def props
+        def imageTag = getImageTag()
+        def manifest = "deploy.yaml"
+        def namespace
+        def services = ['auth', 'report', 'subscription']
+
+        stage("Get Source") {
+            checkout scm
+            props = readProperties file: "deployment/deploy_env_vars"
+            namespace = "${props.namespace}"
+        }
+
+        stage("Setup AKS") {
+            container('azure-cli') {
+                withCredentials([azureServicePrincipal('azure-credentials')]) {
+                    sh """
+                        az login --service-principal -u \$AZURE_CLIENT_ID -p \$AZURE_CLIENT_SECRET -t \$AZURE_TENANT_ID
+                        az aks get-credentials --resource-group ictcoe-edu --name ${props.teamid}-aks --overwrite-existing
+                        kubectl create namespace ${namespace} --dry-run=client -o yaml | kubectl apply -f -
+                    """
+                }
+            }
+        }
+
+        stage('Build Applications') {
+            container('gradle') {
+                sh """
+                    chmod +x gradlew
+                    # 테스트 없이 빌드 실행
+                    ./gradlew :auth:build :report:build :subscription:build -x test
+                """
+            }
+        }
+
+        stage('Build & Push Images') {
+            container('podman') {
+                withCredentials([usernamePassword(
+                    credentialsId: 'acr-credentials',
+                    usernameVariable: 'USERNAME',
+                    passwordVariable: 'PASSWORD'
+                )]) {
+                    sh "podman login ${props.registry} --username \$USERNAME --password \$PASSWORD"
+
+                    services.each { service ->
+                        sh """
+                            podman build \
+                                --build-arg BUILD_LIB_DIR="${service}/build/libs" \
+                                --build-arg ARTIFACTORY_FILE="${service}.jar" \
+                                -f deployment/Dockerfile \
+                                -t ${props.registry}/${props.image_org}/${service}:${imageTag} .
+
+                            podman push ${props.registry}/${props.image_org}/${service}:${imageTag}
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Generate & Apply Manifest') {
+            container('envsubst') {
+                sh """
+                    export namespace=${namespace}
+                    export allowed_origins=${props.allowed_origins}
+                    export jwt_secret_key=${props.jwt_secret_key}
+                    export postgres_user=${props.postgres_user}
+                    export postgres_password=${props.postgres_password}
+                    export azure_storage_connection_string="${props.azure_storage_connection_string}"
+                    export replicas=${props.replicas}
+                    export resources_requests_cpu=${props.resources_requests_cpu}
+                    export resources_requests_memory=${props.resources_requests_memory}
+                    export resources_limits_cpu=${props.resources_limits_cpu}
+                    export resources_limits_memory=${props.resources_limits_memory}
+
+                    # 이미지 경로 환경변수 설정
+                    export auth_image_path=${props.registry}/${props.image_org}/auth:${imageTag}
+                    export report_image_path=${props.registry}/${props.image_org}/report:${imageTag}
+                    export subscription_image_path=${props.registry}/${props.image_org}/subscription:${imageTag}
+
+                    # manifest 생성
+                    envsubst < deployment/${manifest}.template > deployment/${manifest}
+                    cat deployment/${manifest}
+                """
+            }
+
+            container('azure-cli') {
+                sh """
+                    kubectl apply -f deployment/${manifest}
+
+                    echo "Waiting for deployments to be ready..."
+                    kubectl -n ${namespace} wait --for=condition=available deployment/bidw-auth --timeout=300s
+                    kubectl -n ${namespace} wait --for=condition=available deployment/bidw-report --timeout=300s
+                    kubectl -n ${namespace} wait --for=condition=available deployment/bidw-subscription --timeout=300s
+                    
+                    echo "Getting ingress status..."
+                    kubectl -n ${namespace} get ingress
+                """
+            }
+        }
+    }
+}

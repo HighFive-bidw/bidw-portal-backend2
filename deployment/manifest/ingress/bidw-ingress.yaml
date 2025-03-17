@@ -1,0 +1,31 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: bidw-ingress
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /api/auth
+        pathType: Prefix
+        backend:
+          service:
+            name: bidw-auth
+            port:
+              number: 80
+      - path: /api/reports
+        pathType: Prefix
+        backend:
+          service:
+            name: bidw-report
+            port:
+              number: 80
+      - path: /api/subscriptions
+        pathType: Prefix
+        backend:
+          service:
+            name: bidw-subscription
+            port:
+              number: 80

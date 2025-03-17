@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bidw-report
+  labels:
+    app: bidw-report
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bidw-report
+  template:
+    metadata:
+      labels:
+        app: bidw-report
+    spec:
+      containers:
+      - name: bidw-report
+        image: high5cr.azurecr.io/bidw/report:1.0.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8081
+        resources:
+          requests:
+            cpu: 256m
+            memory: 256Mi
+          limits:
+            cpu: 1024m
+            memory: 1024Mi
+        envFrom:
+        - configMapRef:
+            name: bidw-common-config
+        - configMapRef:
+            name: bidw-report-config
+        - secretRef:
+            name: bidw-common-secret
+        - secretRef:
+            name: bidw-report-secret
+        startupProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8081
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 6
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8081
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8081
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3

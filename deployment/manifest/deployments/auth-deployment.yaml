@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bidw-auth
+  labels:
+    app: bidw-auth
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bidw-auth
+  template:
+    metadata:
+      labels:
+        app: bidw-auth
+    spec:
+      containers:
+      - name: bidw-auth
+        image: high5cr.azurecr.io/bidw/auth:1.0.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            cpu: 256m
+            memory: 256Mi
+          limits:
+            cpu: 1024m
+            memory: 1024Mi
+        envFrom:
+        - configMapRef:
+            name: bidw-common-config
+        - configMapRef:
+            name: bidw-auth-config
+        - secretRef:
+            name: bidw-common-secret
+        - secretRef:
+            name: bidw-auth-secret
+        startupProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 6
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3

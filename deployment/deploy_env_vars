@@ -1,0 +1,25 @@
+# deploy_env_vars
+# Team Settings
+teamid=high5
+root_project=bidw-portal-backend2
+namespace=${teamid}-lifesub-ns
+
+# Container Registry Settings
+registry=high5cr.azurecr.io
+image_org=bidw
+
+# Application Settings
+replicas=1
+allowed_origins=http://4.127.33.33
+
+# Security Settings
+jwt_secret_key=xtlJe51JDbYlJ8VafJb9Gzy9EY3vaxMI1QsjZwKEkU8=
+postgres_user=admin
+postgres_password=Passw0rd
+azure_storage_connection_string=DefaultEndpointsProtocol=https;AccountName=high5bidwstorage;AccountKey=ytnU1SOxqHouIG5WB0vTaD9phcUIgT/sSX/6vE5YlN3rAuFkhct3ijEK4B6hNOocAQl0uSf6ZRKI+AStzzycdw==;BlobEndpoint=https://high5bidwstorage.blob.core.windows.net/;
+
+# Resource Settings
+resources_requests_cpu=256m
+resources_requests_memory=256Mi
+resources_limits_cpu=1024m
+resources_limits_memory=1024Mi

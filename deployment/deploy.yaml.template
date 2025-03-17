@@ -1,0 +1,351 @@
+# deploy.yaml.template
+# ConfigMaps
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: common-config
+  namespace: ${namespace}
+data:
+  ALLOWED_ORIGINS: ${allowed_origins}
+  JPA_DDL_AUTO: update
+  JPA_SHOW_SQL: 'true'
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-config
+  namespace: ${namespace}
+data:
+  POSTGRES_DB: authdb
+  POSTGRES_HOST: postgres-auth-external
+  POSTGRES_PORT: '5432'
+  SERVER_PORT: '8080'
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: report-config
+  namespace: ${namespace}
+data:
+  AZURE_CONTAINER_REPORTS: reports
+  FILE_EXPIRY_TIME: '30'
+  FILE_STORAGE_LOCATION: ./reports
+  POSTGRES_DB: reportdb
+  POSTGRES_HOST: postgres-report-external
+  POSTGRES_PORT: '5432'
+  SERVER_PORT: '8081'
+  TOKEN_CLEANUP_CRON: 0 0 * * * *
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: subscription-config
+  namespace: ${namespace}
+data:
+  POSTGRES_DB: subscriptiondb
+  POSTGRES_HOST: postgres-subscription-external
+  POSTGRES_PORT: '5432'
+  REPORT_SERVICE_URL: http://report
+  SERVER_PORT: '8082'
+  SUBSCRIPTION_MAX_LIMIT: '10'
+
+---
+# Secrets
+apiVersion: v1
+kind: Secret
+metadata:
+  name: common-secret
+  namespace: ${namespace}
+stringData:
+  JWT_SECRET_KEY: ${jwt_secret_key}
+type: Opaque
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: auth-secret
+  namespace: ${namespace}
+stringData:
+  JWT_ACCESS_TOKEN_VALIDITY: '3600000'
+  JWT_REFRESH_TOKEN_VALIDITY: '86400000'
+  POSTGRES_PASSWORD: ${postgres_password}
+  POSTGRES_USER: ${postgres_user}
+type: Opaque
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: report-secret
+  namespace: ${namespace}
+stringData:
+  AZURE_STORAGE_CONNECTION_STRING: ${azure_storage_connection_string}
+  POSTGRES_PASSWORD: ${postgres_password}
+  POSTGRES_USER: ${postgres_user}
+type: Opaque
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: subscription-secret
+  namespace: ${namespace}
+stringData:
+  POSTGRES_PASSWORD: ${postgres_password}
+  POSTGRES_USER: ${postgres_user}
+type: Opaque
+
+---
+# Deployments
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth
+  namespace: ${namespace}
+spec:
+  replicas: ${replicas}
+  selector:
+    matchLabels:
+      app: auth
+  template:
+    metadata:
+      labels:
+        app: auth
+    spec:
+      containers:
+      - name: auth
+        image: ${auth_image_path}
+        imagePullPolicy: Always
+        envFrom:
+        - configMapRef:
+            name: common-config
+        - configMapRef:
+            name: auth-config
+        - secretRef:
+            name: common-secret
+        - secretRef:
+            name: auth-secret
+        resources:
+          requests:
+            cpu: ${resources_requests_cpu}
+            memory: ${resources_requests_memory}
+          limits:
+            cpu: ${resources_limits_cpu}
+            memory: ${resources_limits_memory}
+        ports:
+        - containerPort: 8080
+        startupProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          failureThreshold: 30
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: report
+  namespace: ${namespace}
+spec:
+  replicas: ${replicas}
+  selector:
+    matchLabels:
+      app: report
+  template:
+    metadata:
+      labels:
+        app: report
+    spec:
+      containers:
+      - name: report
+        image: ${report_image_path}
+        imagePullPolicy: Always
+        envFrom:
+        - configMapRef:
+            name: common-config
+        - configMapRef:
+            name: report-config
+        - secretRef:
+            name: common-secret
+        - secretRef:
+            name: report-secret
+        resources:
+          requests:
+            cpu: ${resources_requests_cpu}
+            memory: ${resources_requests_memory}
+          limits:
+            cpu: ${resources_limits_cpu}
+            memory: ${resources_limits_memory}
+        ports:
+        - containerPort: 8081
+        startupProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8081
+          failureThreshold: 30
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8081
+          initialDelaySeconds: 60
+          periodSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8081
+          initialDelaySeconds: 10
+          periodSeconds: 5
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: subscription
+  namespace: ${namespace}
+spec:
+  replicas: ${replicas}
+  selector:
+    matchLabels:
+      app: subscription
+  template:
+    metadata:
+      labels:
+        app: subscription
+    spec:
+      containers:
+      - name: subscription
+        image: ${subscription_image_path}
+        imagePullPolicy: Always
+        envFrom:
+        - configMapRef:
+            name: common-config
+        - configMapRef:
+            name: subscription-config
+        - secretRef:
+            name: common-secret
+        - secretRef:
+            name: subscription-secret
+        resources:
+          requests:
+            cpu: ${resources_requests_cpu}
+            memory: ${resources_requests_memory}
+          limits:
+            cpu: ${resources_limits_cpu}
+            memory: ${resources_limits_memory}
+        ports:
+        - containerPort: 8082
+        startupProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8082
+          failureThreshold: 30
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8082
+          initialDelaySeconds: 60
+          periodSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8082
+          initialDelaySeconds: 10
+          periodSeconds: 5
+
+---
+# Services
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth
+  namespace: ${namespace}
+spec:
+  selector:
+    app: auth
+  ports:
+  - port: 80
+    targetPort: 8080
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: report
+  namespace: ${namespace}
+spec:
+  selector:
+    app: report
+  ports:
+  - port: 80
+    targetPort: 8081
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: subscription
+  namespace: ${namespace}
+spec:
+  selector:
+    app: subscription
+  ports:
+  - port: 80
+    targetPort: 8082
+  type: ClusterIP
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: bidw
+  namespace: ${namespace}
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/use-regex: "true"
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /auth(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: auth
+                port:
+                  number: 80
+          - path: /report(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: report
+                port:
+                  number: 80
+          - path: /subscription(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: subscription
+                port:
+                  number: 80

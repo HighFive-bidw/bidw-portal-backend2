@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bidw-report-config
+data:
+  SERVER_PORT: "8081"
+  POSTGRES_HOST: "postgres-jreport-external"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "reportdb"
+  AZURE_CONTAINER_REPORTS: "reports"
+  FILE_STORAGE_LOCATION: "./reports"
+  FILE_EXPIRY_TIME: "30"
+  TOKEN_CLEANUP_CRON: "0 0 * * * *"

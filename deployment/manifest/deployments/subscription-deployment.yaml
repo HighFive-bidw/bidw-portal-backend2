@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bidw-subscription
+  labels:
+    app: bidw-subscription
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bidw-subscription
+  template:
+    metadata:
+      labels:
+        app: bidw-subscription
+    spec:
+      containers:
+      - name: bidw-subscription
+        image: high5cr.azurecr.io/bidw/subscription:1.0.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8082
+        resources:
+          requests:
+            cpu: 256m
+            memory: 256Mi
+          limits:
+            cpu: 1024m
+            memory: 1024Mi
+        envFrom:
+        - configMapRef:
+            name: bidw-common-config
+        - configMapRef:
+            name: bidw-subscription-config
+        - secretRef:
+            name: bidw-common-secret
+        - secretRef:
+            name: bidw-subscription-secret
+        startupProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8082
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 6
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8082
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8082
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
