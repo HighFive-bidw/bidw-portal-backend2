@@ -3,7 +3,7 @@ kind: ConfigMap
 metadata:
   name: bidw-common-config
 data:
-  SERVER_ALLOWED_ORIGINS: "http://localhost:3000,http://20.249.175.175"
+  ALLOWED_ORIGINS: "http://localhost:3000,http://20.214.99.23"
   JPA_DDL_AUTO: "update"
   JPA_SHOW_SQL: "true"
   LOG_LEVEL: "DEBUG"
