@@ -7,3 +7,4 @@ data:
   POSTGRES_HOST: "postgres-auth-postgresql-primary"
   POSTGRES_PORT: "5432"
   POSTGRES_DB: "authdb"
+  ALLOWED_ORIGINS: "http://localhost:3000,http://20.214.99.23"

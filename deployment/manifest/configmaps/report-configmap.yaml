@@ -11,3 +11,4 @@ data:
   FILE_STORAGE_LOCATION: "./reports"
   FILE_EXPIRY_TIME: "30"
   TOKEN_CLEANUP_CRON: "0 0 * * * *"
+  ALLOWED_ORIGINS: "http://localhost:3000,http://20.214.99.23"

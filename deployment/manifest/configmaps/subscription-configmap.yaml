@@ -9,3 +9,4 @@ data:
   POSTGRES_DB: "subscriptiondb"
   REPORT_SERVICE_URL: "http://bidw-report"
   SUBSCRIPTION_MAX_LIMIT: "10"
+  ALLOWED_ORIGINS: "http://localhost:3000,http://20.214.99.23"
