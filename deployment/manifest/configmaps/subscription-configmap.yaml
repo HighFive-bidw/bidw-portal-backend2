@@ -4,7 +4,7 @@ metadata:
   name: bidw-subscription-config
 data:
   SERVER_PORT: "8082"
-  POSTGRES_HOST: "postgres-jsubscription-external"
+  POSTGRES_HOST: "postgres-jsubscription-postgresql-primary"
   POSTGRES_PORT: "5432"
   POSTGRES_DB: "subscriptiondb"
   REPORT_SERVICE_URL: "http://bidw-report"
