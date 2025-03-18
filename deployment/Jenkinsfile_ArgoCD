@@ -1,0 +1,139 @@
+// Jenkinsfile
+def PIPELINE_ID = "${env.BUILD_NUMBER}"
+
+def getImageTag() {
+    def dateFormat = new java.text.SimpleDateFormat('yyyyMMddHHmmss')
+    def currentDate = new Date()
+    return dateFormat.format(currentDate)
+}
+
+podTemplate(
+    label: "${PIPELINE_ID}",
+    serviceAccount: 'jenkins',
+    containers: [
+        containerTemplate(name: 'podman', image: "mgoltzsche/podman", ttyEnabled: true, command: 'cat', privileged: true),
+        containerTemplate(name: 'gradle',
+                        image: 'gradle:jdk21',
+                        ttyEnabled: true,
+                        command: 'cat'),
+        containerTemplate(name: 'azure-cli', image: 'hiondal/azure-kubectl:latest', command: 'cat', ttyEnabled: true),
+        containerTemplate(name: 'envsubst', image: "hiondal/envsubst", command: 'sleep', args: '1h')
+    ],
+    volumes: [
+        emptyDirVolume(mountPath: '/home/gradle/.gradle', memory: false),
+        emptyDirVolume(mountPath: '/root/.azure', memory: false),
+        emptyDirVolume(mountPath: '/run/podman', memory: false)
+    ]
+) {
+    node(PIPELINE_ID) {
+        def props
+        def imageTag = getImageTag()
+        def manifest = "deploy.yaml"
+        def namespace
+        def services = ['auth', 'report', 'subscription']
+        
+        // 서비스별 JAR 파일 이름 매핑
+        def jarFileMap = [
+            'auth': 'auth-service.jar',
+            'report': 'report-service.jar',
+            'subscription': 'subscription-service.jar'
+        ]
+
+        stage("Get Source") {
+            checkout scm
+            props = readProperties file: "deployment/deploy_env_vars"
+            namespace = "${props.namespace}"
+        }
+
+        stage("Setup AKS") {
+            container('azure-cli') {
+                withCredentials([azureServicePrincipal('azure-credentials')]) {
+                    sh """
+                        az login --service-principal -u \$AZURE_CLIENT_ID -p \$AZURE_CLIENT_SECRET -t \$AZURE_TENANT_ID
+                        az aks get-credentials --resource-group ictcoe-edu --name ${props.teamid}-aks --overwrite-existing
+                        kubectl create namespace ${namespace} --dry-run=client -o yaml | kubectl apply -f -
+                    """
+                }
+            }
+        }
+
+        stage('Build Applications') {
+            container('gradle') {
+                sh """
+                    chmod +x gradlew
+                    # 테스트 없이 빌드 실행
+                    ./gradlew :auth:build :report:build :subscription:build -x test
+                """
+            }
+        }
+
+        stage('Build & Push Images') {
+            container('podman') {
+                withCredentials([usernamePassword(
+                    credentialsId: 'acr-credentials',
+                    usernameVariable: 'USERNAME',
+                    passwordVariable: 'PASSWORD'
+                )]) {
+                    sh "podman login ${props.registry} --username \$USERNAME --password \$PASSWORD"
+
+                    services.each { service ->
+                        def jarFileName = jarFileMap[service]
+                        
+                        sh """
+                            # 현재 워크스페이스의 절대 경로 가져오기
+                            WORKSPACE=\$(pwd)
+                            echo "Current workspace: \${WORKSPACE}"
+                            
+                            # JAR 파일 존재 여부 확인
+                            BUILD_DIR="\${WORKSPACE}/${service}/build/libs"
+                            echo "Looking for JAR in: \${BUILD_DIR}"
+                            ls -la \${BUILD_DIR}/ || echo "Directory not found or empty"
+                            
+                            # 빌드 및 푸시
+                            echo "Building image for ${service} using JAR: ${jarFileName}"
+                            podman build \\
+                                --build-arg BUILD_LIB_DIR="${service}/build/libs" \\
+                                --build-arg ARTIFACTORY_FILE="${jarFileName}" \\
+                                -f deployment/container/Dockerfile \\
+                                -t ${props.registry}/${props.image_org}/${service}:${imageTag} .
+
+                            podman push ${props.registry}/${props.image_org}/${service}:${imageTag}
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Update Repository') {
+            container('azure-cli') {
+                withCredentials([usernamePassword(
+                    credentialsId: 'github-credentials',
+                    usernameVariable: 'GIT_USERNAME',
+                    passwordVariable: 'GIT_PASSWORD'
+                )]) {
+                    // 임시 디렉토리 생성 및 git clone
+                    sh """
+                        git config --global user.email "jenkins@example.com"
+                        git config --global user.name "Jenkins"
+                
+                        # Clone the manifest repository
+                        git clone https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/HighFive-bidw/bidw-manifest.git
+                        cd bidw-manifest
+                
+                        # Update backend deployment images
+                        for service in auth report subscription; do
+                            if [ -f deployments/manifest/\${service}-deployment.yaml ]; then
+                                sed -i 's|image: ${props.registry}/${props.image_org}/'\${service}':.*|image: ${props.registry}/${props.image_org}/'\${service}':${imageTag}|g' deployments/manifest/\${service}-deployment.yaml
+                            fi
+                        done
+                
+                        # Commit and push changes
+                        git add -A
+                        git commit -m "Update backend image tags to ${imageTag}"
+                        git push origin main
+                    """
+                }
+            }
+        }
+    }
+}
