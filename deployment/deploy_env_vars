@@ -10,7 +10,7 @@ image_org=bidw
 
 # Application Settings
 replicas=1
-allowed_origins=http://20.214.99.23
+allowed_origins=http://20.214.99.23, http://localhost:3000
 
 # Security Settings
 jwt_secret_key=xtlJe51JDbYlJ8VafJb9Gzy9EY3vaxMI1QsjZwKEkU8=
