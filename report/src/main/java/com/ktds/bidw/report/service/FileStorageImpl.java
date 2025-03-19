@@ -7,6 +7,7 @@ import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.azure.storage.blob.sas.BlobSasPermission;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
 import com.ktds.bidw.report.exception.FileStorageException;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -34,6 +35,8 @@ public class FileStorageImpl implements FileStorage {
     private final Timer sasTokenGenerationTimer;
     private final Counter sasTokenIssuedCounter;
     private final Timer blobStorageOperationTimer;
+    private final Timer excelFileStorageTimer;
+    private final MeterRegistry meterRegistry;
 
     /**
      * 생성자를 통해 Azure Storage 연결 설정을 초기화합니다.
@@ -48,7 +51,8 @@ public class FileStorageImpl implements FileStorage {
             @Value("${file.storage.expiry-time-minutes}") int expiryTimeInMinutes,
             @Qualifier("sasTokenGenerationTimer") Timer sasTokenGenerationTimer,
             @Qualifier("sasTokenIssuedCounter") Counter sasTokenIssuedCounter,
-            @Qualifier("blobStorageOperationTimer") Timer blobStorageOperationTimer) {
+            @Qualifier("blobStorageOperationTimer") Timer blobStorageOperationTimer,
+            MeterRegistry meterRegistry) {
         
         this.blobServiceClient = new BlobServiceClientBuilder()
                 .connectionString(connectionString)
@@ -65,6 +69,14 @@ public class FileStorageImpl implements FileStorage {
         this.sasTokenGenerationTimer = sasTokenGenerationTimer;
         this.sasTokenIssuedCounter = sasTokenIssuedCounter;
         this.blobStorageOperationTimer = blobStorageOperationTimer;
+        this.meterRegistry = meterRegistry;
+
+        this.excelFileStorageTimer = Timer.builder("excel_file_storage_time_seconds")
+                .description("Excel 파일 저장 소요 시간")
+                .tags("service", "report")
+                .register(meterRegistry);
+
+        log.info("Metrics registered: excel_file_storage_time_seconds");
     }
     
     /**
@@ -76,22 +88,36 @@ public class FileStorageImpl implements FileStorage {
      */
     @Override
     public String storeFile(byte[] data, String fileName) {
-        return blobStorageOperationTimer.record(() -> {
-            try {
-                BlobClient blobClient = containerClient.getBlobClient(fileName);
+        Timer.Sample sample = Timer.start(meterRegistry);
+        log.info("Starting file storage operation for file: {}", fileName);
 
-                // 파일 업로드
-                blobClient.upload(new ByteArrayInputStream(data), data.length, true);
+        try {
+            return blobStorageOperationTimer.record(() -> {
+                try {
+                    BlobClient blobClient = containerClient.getBlobClient(fileName);
 
-                log.info("파일이 성공적으로 업로드되었습니다: {}", fileName);
+                    // 파일 업로드
+                    blobClient.upload(new ByteArrayInputStream(data), data.length, true);
 
-                // SAS URL 반환
-                return generateSignedUrl(fileName);
-            } catch (Exception e) {
-                log.error("파일 업로드 중 오류가 발생했습니다", e);
-                throw new FileStorageException("파일 저장에 실패했습니다: " + e.getMessage());
-            }
-        });
+                    log.info("File uploaded successfully: {}", fileName);
+
+                    // SAS URL 반환
+                    String url = generateSignedUrl(fileName);
+
+                    // 성공 로그
+                    log.info("File storage completed successfully: {}", fileName);
+
+                    return url;
+                } catch (Exception e) {
+                    log.error("File upload error: {}", e.getMessage(), e);
+                    throw new FileStorageException("Failed to store file: " + e.getMessage());
+                }
+            });
+        } finally {
+            long elapsedNanos = sample.stop(excelFileStorageTimer);
+            double elapsedSeconds = elapsedNanos / 1_000_000_000.0;
+            log.info("File storage operation for '{}' took {:.3f} seconds", fileName, elapsedSeconds);
+        }
     }
     
     /**
@@ -112,7 +138,10 @@ public class FileStorageImpl implements FileStorage {
      * @return 서명된 URL
      */
     private String generateSignedUrl(String fileName) {
-        return sasTokenGenerationTimer.record(() -> {
+        Timer.Sample sample = Timer.start(meterRegistry);
+        try {
+            log.info("Generating SAS token for file: {}", fileName);
+
             BlobClient blobClient = containerClient.getBlobClient(fileName);
 
             // SAS 토큰 생성
@@ -128,7 +157,13 @@ public class FileStorageImpl implements FileStorage {
             // SAS 토큰 발급 카운터 증가
             sasTokenIssuedCounter.increment();
 
+            log.info("SAS token generated successfully for file: {}", fileName);
+
             return blobClient.getBlobUrl() + "?" + sasToken;
-        });
+        } finally {
+            long elapsedNanos = sample.stop(sasTokenGenerationTimer);
+            double elapsedSeconds = elapsedNanos / 1_000_000_000.0;
+            log.info("SAS token generation for '{}' took {:.3f} seconds", fileName, elapsedSeconds);
+        }
     }
 }
