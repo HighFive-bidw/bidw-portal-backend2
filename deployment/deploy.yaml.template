@@ -195,6 +195,9 @@ spec:
             memory: ${resources_limits_memory}
         ports:
         - containerPort: 8081
+        env:
+        - name: JAVA_OPTS
+          value: "-Djava.awt.headless=true"
         startupProbe:
           httpGet:
             path: /actuator/health

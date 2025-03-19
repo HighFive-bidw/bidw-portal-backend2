@@ -20,6 +20,9 @@ spec:
         imagePullPolicy: Always
         ports:
         - containerPort: 8081
+        env:
+        - name: JAVA_OPTS
+          value: "-Djava.awt.headless=true"
         resources:
           requests:
             cpu: 256m
