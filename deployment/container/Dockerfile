@@ -13,6 +13,12 @@ ENV USERNAME k8s
 ENV ARTIFACTORY_HOME /home/${USERNAME}
 ENV JAVA_OPTS=""
 
+# Install required packages for font and X11 support
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    fontconfig \
+    libfreetype6 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Add a non-root user
 RUN adduser --system --group ${USERNAME} && \
    mkdir -p ${ARTIFACTORY_HOME} && \

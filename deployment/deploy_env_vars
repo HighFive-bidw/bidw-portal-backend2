@@ -23,3 +23,6 @@ resources_requests_cpu=256m
 resources_requests_memory=256Mi
 resources_limits_cpu=1024m
 resources_limits_memory=1024Mi
+
+
+JAVA_OPTS=-Djava.awt.headless=true
