@@ -29,22 +29,18 @@ public class ReportController {
 
     private final ReportService reportService;
     private final Timer httpReportDownloadTimer;
-    private final Counter httpReportDownloadTotalCounter;
 
     /**
      * 생성자를 통해 의존성 및 메트릭을 초기화합니다.
      *
      * @param reportService 리포트 서비스
      * @param httpReportDownloadTimer HTTP 다운로드 타이머
-     * @param httpReportDownloadTotalCounter HTTP 다운로드 카운터
      */
     public ReportController(
             ReportService reportService,
-            Timer httpReportDownloadTimer,
-            Counter httpReportDownloadTotalCounter) {
+            Timer httpReportDownloadTimer) {
         this.reportService = reportService;
         this.httpReportDownloadTimer = httpReportDownloadTimer;
-        this.httpReportDownloadTotalCounter = httpReportDownloadTotalCounter;
     }
 
     /**
@@ -101,10 +97,7 @@ public class ReportController {
             @Parameter(description = "리포트 ID", required = true)
             @PathVariable Long reportId) {
 
-        // HTTP 요청 수 증가
-        httpReportDownloadTotalCounter.increment();
-
-        // HTTP 계층 타이머 측정 시작
+        // HTTP 계층 타이머로만 측정
         return httpReportDownloadTimer.record(() -> {
             try {
                 DownloadResponse response = reportService.downloadReport(reportId);

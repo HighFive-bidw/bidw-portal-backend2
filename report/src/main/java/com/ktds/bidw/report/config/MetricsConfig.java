@@ -17,9 +17,9 @@ public class MetricsConfig {
 
     // HTTP 계층 메트릭 (컨트롤러용)
     @Bean
-    public Timer httpReportDownloadTimer(MeterRegistry registry) {
-        return Timer.builder("http.report.download.seconds")
-                .description("HTTP 리포트 다운로드 요청 처리 시간")
+    public Timer reportDownloadTimer(MeterRegistry registry) {
+        return Timer.builder("report_download_seconds")
+                .description("리포트 다운로드 처리 소요 시간")
                 .publishPercentiles(0.5, 0.95, 0.99)
                 .publishPercentileHistogram()
                 .sla(
@@ -32,39 +32,33 @@ public class MetricsConfig {
     }
 
     @Bean
-    public Counter httpReportDownloadTotalCounter(MeterRegistry registry) {
-        return Counter.builder("http.report.download.total")
-                .description("총 HTTP 리포트 다운로드 요청 수")
+    public Counter reportDownloadTotalCounter(MeterRegistry registry) {
+        return Counter.builder("report_download_total")
+                .description("전체 리포트 다운로드 요청 수")
                 .register(registry);
     }
 
-    // 비즈니스 로직 계층 메트릭 (서비스용)
     @Bean
-    public Timer businessReportDownloadTimer(MeterRegistry registry) {
-        return Timer.builder("business.report.download.seconds")
-                .description("비즈니스 로직 리포트 다운로드 처리 시간")
+    public Counter reportDownloadSuccessCounter(MeterRegistry registry) {
+        return Counter.builder("report_download_success_total")
+                .description("성공한 리포트 다운로드 수")
+                .register(registry);
+    }
+
+    @Bean
+    public Counter reportDownloadFailureCounter(MeterRegistry registry) {
+        return Counter.builder("report_download_failure_total")
+                .description("실패한 리포트 다운로드 수")
+                .register(registry);
+    }
+
+    // HTTP 계층 전용 메트릭
+    @Bean
+    public Timer httpReportDownloadTimer(MeterRegistry registry) {
+        return Timer.builder("http_report_download_seconds")
+                .description("HTTP 리포트 다운로드 처리 시간")
                 .publishPercentiles(0.5, 0.95, 0.99)
                 .publishPercentileHistogram()
-                .sla(
-                        Duration.ofMillis(300),
-                        Duration.ofMillis(700),
-                        Duration.ofSeconds(1),
-                        Duration.ofSeconds(3)
-                )
-                .register(registry);
-    }
-
-    @Bean
-    public Counter businessReportDownloadSuccessCounter(MeterRegistry registry) {
-        return Counter.builder("business.report.download.success.total")
-                .description("성공한 비즈니스 리포트 다운로드 수")
-                .register(registry);
-    }
-
-    @Bean
-    public Counter businessReportDownloadFailureCounter(MeterRegistry registry) {
-        return Counter.builder("business.report.download.failure.total")
-                .description("실패한 비즈니스 리포트 다운로드 수")
                 .register(registry);
     }
 
@@ -133,43 +127,6 @@ public class MetricsConfig {
     public Counter excelFileSizeCounter(MeterRegistry registry) {
         return Counter.builder("excel_file_size_bytes_total")
                 .description("생성된 Excel 파일 크기 합계")
-                .register(registry);
-    }
-
-    // 리포트 다운로드 관련 메트릭
-    @Bean
-    public Timer reportDownloadTimer(MeterRegistry registry) {
-        return Timer.builder("report_download_seconds")
-                .description("리포트 다운로드 처리 소요 시간")
-                .publishPercentiles(0.5, 0.95, 0.99)
-                .publishPercentileHistogram()
-                .sla(
-                        Duration.ofMillis(500),
-                        Duration.ofSeconds(1),
-                        Duration.ofSeconds(2),
-                        Duration.ofSeconds(5)
-                )
-                .register(registry);
-    }
-
-    @Bean
-    public Counter reportDownloadTotalCounter(MeterRegistry registry) {
-        return Counter.builder("report_download_total")
-                .description("전체 리포트 다운로드 요청 수")
-                .register(registry);
-    }
-
-    @Bean
-    public Counter reportDownloadSuccessCounter(MeterRegistry registry) {
-        return Counter.builder("report_download_success_total")
-                .description("성공한 리포트 다운로드 수")
-                .register(registry);
-    }
-
-    @Bean
-    public Counter reportDownloadFailureCounter(MeterRegistry registry) {
-        return Counter.builder("report_download_failure_total")
-                .description("실패한 리포트 다운로드 수")
                 .register(registry);
     }
 }
