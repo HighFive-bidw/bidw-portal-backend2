@@ -19,20 +19,51 @@ import java.time.LocalTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Timer;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+
+
 /**
  * 리포트 관련 서비스 구현 클래스입니다.
+ * 리포트 다운로드 성공률 관련 메트릭을 수집합니다.
  */
+@Slf4j
 @Service
-@RequiredArgsConstructor
 public class ReportServiceImpl implements ReportService {
 
     private final ReportRepository reportRepository;
     private final ExcelService excelService;
-    
+
+    // 메트릭 추가
+    private final Timer reportDownloadTimer;
+    private final Counter reportDownloadTotalCounter;
+    private final Counter reportDownloadSuccessCounter;
+    private final Counter reportDownloadFailureCounter;
+
+    /**
+     * 생성자를 통해 의존성을 주입받습니다.
+     */
+    @Autowired
+    public ReportServiceImpl(
+            ReportRepository reportRepository,
+            ExcelService excelService,
+            @Qualifier("reportDownloadTimer") Timer reportDownloadTimer,
+            @Qualifier("reportDownloadTotalCounter") Counter reportDownloadTotalCounter,
+            @Qualifier("reportDownloadSuccessCounter") Counter reportDownloadSuccessCounter,
+            @Qualifier("reportDownloadFailureCounter") Counter reportDownloadFailureCounter) {
+        this.reportRepository = reportRepository;
+        this.excelService = excelService;
+        this.reportDownloadTimer = reportDownloadTimer;
+        this.reportDownloadTotalCounter = reportDownloadTotalCounter;
+        this.reportDownloadSuccessCounter = reportDownloadSuccessCounter;
+        this.reportDownloadFailureCounter = reportDownloadFailureCounter;
+    }
+
     /**
      * 모든 리포트 목록을 조회합니다.
-     *
-     * @return 리포트 목록
      */
     @Override
     @Transactional(readOnly = true)
@@ -41,39 +72,32 @@ public class ReportServiceImpl implements ReportService {
                 .map(this::convertToReportListDTO)
                 .collect(Collectors.toList());
     }
-    
+
     /**
      * 날짜로 필터링된 리포트 목록을 조회합니다.
-     *
-     * @param startDate 시작 날짜
-     * @param endDate 종료 날짜
-     * @return 필터링된 리포트 목록
      */
     @Override
     @Transactional(readOnly = true)
     public List<ReportListDTO> getFilteredReports(LocalDate startDate, LocalDate endDate) {
         ValidationUtils.validateStartEndDates(startDate, endDate);
-        
+
         LocalDateTime startDateTime = startDate.atStartOfDay();
         LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
-        
+
         return reportRepository.findByLastUpdatedBetween(startDateTime, endDateTime).stream()
                 .map(this::convertToReportListDTO)
                 .collect(Collectors.toList());
     }
-    
+
     /**
      * 특정 리포트의 상세 정보를 조회합니다.
-     *
-     * @param reportId 리포트 ID
-     * @return 리포트 상세 정보
      */
     @Override
     @Transactional(readOnly = true)
     public ReportDetailDTO getReportDetail(Long reportId) {
         Report report = reportRepository.findById(reportId)
                 .orElseThrow(() -> new ReportNotFoundException("리포트를 찾을 수 없습니다: " + reportId));
-        
+
         return new ReportDetailDTO(
                 report.getId(),
                 report.getName(),
@@ -81,39 +105,48 @@ public class ReportServiceImpl implements ReportService {
                 report.getData().getRows()
         );
     }
-    
+
     /**
      * 특정 리포트를 Excel 형식으로 다운로드합니다.
-     *
-     * @param reportId 리포트 ID
-     * @return 다운로드 정보
+     * 리포트 다운로드 성공률 측정을 위한 메트릭을 수집합니다.
      */
     @Override
     @Transactional(readOnly = true)
     public DownloadResponse downloadReport(Long reportId) {
-        Report report = reportRepository.findById(reportId)
-                .orElseThrow(() -> new ReportNotFoundException("리포트를 찾을 수 없습니다: " + reportId));
-        
-        ReportData reportData = report.getData();
-        String reportName = report.getName();
-        
-        ExcelResult excelResult = excelService.generateExcel(reportData, reportName);
-        
-        // 현재 시간 + 30분을 URL 만료 시간으로 설정
-        LocalDateTime expiryTime = LocalDateTime.now().plusMinutes(30);
-        
-        return new DownloadResponse(
-                excelResult.getFileUrl(),
-                excelResult.getFileName(),
-                expiryTime
-        );
+        // 다운로드 요청 수 증가
+        reportDownloadTotalCounter.increment();
+
+        return reportDownloadTimer.record(() -> {
+            try {
+                Report report = reportRepository.findById(reportId)
+                        .orElseThrow(() -> new ReportNotFoundException("리포트를 찾을 수 없습니다: " + reportId));
+
+                ReportData reportData = report.getData();
+                String reportName = report.getName();
+
+                ExcelResult excelResult = excelService.generateExcel(reportData, reportName);
+
+                // 현재 시간 + 30분을 URL 만료 시간으로 설정
+                LocalDateTime expiryTime = LocalDateTime.now().plusMinutes(30);
+
+                // 다운로드 성공 수 증가
+                reportDownloadSuccessCounter.increment();
+
+                return new DownloadResponse(
+                        excelResult.getFileUrl(),
+                        excelResult.getFileName(),
+                        expiryTime
+                );
+            } catch (Exception e) {
+                // 다운로드 실패 수 증가
+                reportDownloadFailureCounter.increment();
+                throw e;
+            }
+        });
     }
-    
+
     /**
      * Report를 ReportListDTO로 변환합니다.
-     *
-     * @param report Report 객체
-     * @return ReportListDTO 객체
      */
     private ReportListDTO convertToReportListDTO(Report report) {
         return new ReportListDTO(

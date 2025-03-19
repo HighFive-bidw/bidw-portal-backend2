@@ -14,6 +14,11 @@ import org.springframework.stereotype.Service;
 import java.io.ByteArrayInputStream;
 import java.time.OffsetDateTime;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Timer;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+
 /**
  * Azure Blob Storage를 이용한 파일 저장소 서비스 구현 클래스입니다.
  */
@@ -24,7 +29,12 @@ public class FileStorageImpl implements FileStorage {
     private final BlobServiceClient blobServiceClient;
     private final BlobContainerClient containerClient;
     private final int expiryTimeInMinutes;
-    
+
+    // 메트릭 추가
+    private final Timer sasTokenGenerationTimer;
+    private final Counter sasTokenIssuedCounter;
+    private final Timer blobStorageOperationTimer;
+
     /**
      * 생성자를 통해 Azure Storage 연결 설정을 초기화합니다.
      *
@@ -35,7 +45,10 @@ public class FileStorageImpl implements FileStorage {
     public FileStorageImpl(
             @Value("${azure.storage.connection-string}") String connectionString,
             @Value("${azure.storage.container.reports}") String containerName,
-            @Value("${file.storage.expiry-time-minutes}") int expiryTimeInMinutes) {
+            @Value("${file.storage.expiry-time-minutes}") int expiryTimeInMinutes,
+            @Qualifier("sasTokenGenerationTimer") Timer sasTokenGenerationTimer,
+            @Qualifier("sasTokenIssuedCounter") Counter sasTokenIssuedCounter,
+            @Qualifier("blobStorageOperationTimer") Timer blobStorageOperationTimer) {
         
         this.blobServiceClient = new BlobServiceClientBuilder()
                 .connectionString(connectionString)
@@ -47,8 +60,11 @@ public class FileStorageImpl implements FileStorage {
         if (!containerClient.exists()) {
             containerClient.create();
         }
-        
+
         this.expiryTimeInMinutes = expiryTimeInMinutes;
+        this.sasTokenGenerationTimer = sasTokenGenerationTimer;
+        this.sasTokenIssuedCounter = sasTokenIssuedCounter;
+        this.blobStorageOperationTimer = blobStorageOperationTimer;
     }
     
     /**
@@ -60,20 +76,22 @@ public class FileStorageImpl implements FileStorage {
      */
     @Override
     public String storeFile(byte[] data, String fileName) {
-        try {
-            BlobClient blobClient = containerClient.getBlobClient(fileName);
-            
-            // 파일 업로드
-            blobClient.upload(new ByteArrayInputStream(data), data.length, true);
-            
-            log.info("파일이 성공적으로 업로드되었습니다: {}", fileName);
-            
-            // SAS URL 반환
-            return generateSignedUrl(fileName);
-        } catch (Exception e) {
-            log.error("파일 업로드 중 오류가 발생했습니다", e);
-            throw new FileStorageException("파일 저장에 실패했습니다: " + e.getMessage());
-        }
+        return blobStorageOperationTimer.record(() -> {
+            try {
+                BlobClient blobClient = containerClient.getBlobClient(fileName);
+
+                // 파일 업로드
+                blobClient.upload(new ByteArrayInputStream(data), data.length, true);
+
+                log.info("파일이 성공적으로 업로드되었습니다: {}", fileName);
+
+                // SAS URL 반환
+                return generateSignedUrl(fileName);
+            } catch (Exception e) {
+                log.error("파일 업로드 중 오류가 발생했습니다", e);
+                throw new FileStorageException("파일 저장에 실패했습니다: " + e.getMessage());
+            }
+        });
     }
     
     /**
@@ -94,18 +112,23 @@ public class FileStorageImpl implements FileStorage {
      * @return 서명된 URL
      */
     private String generateSignedUrl(String fileName) {
-        BlobClient blobClient = containerClient.getBlobClient(fileName);
-        
-        // SAS 토큰 생성
-        BlobSasPermission permission = new BlobSasPermission()
-                .setReadPermission(true);
-        
-        OffsetDateTime expiryTime = OffsetDateTime.now().plusMinutes(expiryTimeInMinutes);
-        
-        BlobServiceSasSignatureValues values = new BlobServiceSasSignatureValues(expiryTime, permission);
-        
-        String sasToken = blobClient.generateSas(values);
-        
-        return blobClient.getBlobUrl() + "?" + sasToken;
+        return sasTokenGenerationTimer.record(() -> {
+            BlobClient blobClient = containerClient.getBlobClient(fileName);
+
+            // SAS 토큰 생성
+            BlobSasPermission permission = new BlobSasPermission()
+                    .setReadPermission(true);
+
+            OffsetDateTime expiryTime = OffsetDateTime.now().plusMinutes(expiryTimeInMinutes);
+
+            BlobServiceSasSignatureValues values = new BlobServiceSasSignatureValues(expiryTime, permission);
+
+            String sasToken = blobClient.generateSas(values);
+
+            // SAS 토큰 발급 카운터 증가
+            sasTokenIssuedCounter.increment();
+
+            return blobClient.getBlobUrl() + "?" + sasToken;
+        });
     }
 }
