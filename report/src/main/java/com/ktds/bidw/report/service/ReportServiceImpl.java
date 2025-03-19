@@ -9,7 +9,9 @@ import com.ktds.bidw.report.dto.ReportDetailDTO;
 import com.ktds.bidw.report.dto.ReportListDTO;
 import com.ktds.bidw.report.exception.ReportNotFoundException;
 import com.ktds.bidw.report.repository.ReportRepository;
-import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,10 +23,6 @@ import java.util.stream.Collectors;
 
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Timer;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
-
 
 /**
  * 리포트 관련 서비스 구현 클래스입니다.
@@ -37,11 +35,10 @@ public class ReportServiceImpl implements ReportService {
     private final ReportRepository reportRepository;
     private final ExcelService excelService;
 
-    // 메트릭 추가
-    private final Timer reportDownloadTimer;
-    private final Counter reportDownloadTotalCounter;
-    private final Counter reportDownloadSuccessCounter;
-    private final Counter reportDownloadFailureCounter;
+    // 메트릭
+    private final Timer businessReportDownloadTimer;
+    private final Counter businessReportDownloadSuccessCounter;
+    private final Counter businessReportDownloadFailureCounter;
 
     /**
      * 생성자를 통해 의존성을 주입받습니다.
@@ -50,16 +47,14 @@ public class ReportServiceImpl implements ReportService {
     public ReportServiceImpl(
             ReportRepository reportRepository,
             ExcelService excelService,
-            @Qualifier("reportDownloadTimer") Timer reportDownloadTimer,
-            @Qualifier("reportDownloadTotalCounter") Counter reportDownloadTotalCounter,
-            @Qualifier("reportDownloadSuccessCounter") Counter reportDownloadSuccessCounter,
-            @Qualifier("reportDownloadFailureCounter") Counter reportDownloadFailureCounter) {
+            @Qualifier("businessReportDownloadTimer") Timer businessReportDownloadTimer,
+            @Qualifier("businessReportDownloadSuccessCounter") Counter businessReportDownloadSuccessCounter,
+            @Qualifier("businessReportDownloadFailureCounter") Counter businessReportDownloadFailureCounter) {
         this.reportRepository = reportRepository;
         this.excelService = excelService;
-        this.reportDownloadTimer = reportDownloadTimer;
-        this.reportDownloadTotalCounter = reportDownloadTotalCounter;
-        this.reportDownloadSuccessCounter = reportDownloadSuccessCounter;
-        this.reportDownloadFailureCounter = reportDownloadFailureCounter;
+        this.businessReportDownloadTimer = businessReportDownloadTimer;
+        this.businessReportDownloadSuccessCounter = businessReportDownloadSuccessCounter;
+        this.businessReportDownloadFailureCounter = businessReportDownloadFailureCounter;
     }
 
     /**
@@ -108,15 +103,12 @@ public class ReportServiceImpl implements ReportService {
 
     /**
      * 특정 리포트를 Excel 형식으로 다운로드합니다.
-     * 리포트 다운로드 성공률 측정을 위한 메트릭을 수집합니다.
+     * 비즈니스 로직 성공/실패 측정을 위한 메트릭을 수집합니다.
      */
     @Override
     @Transactional(readOnly = true)
     public DownloadResponse downloadReport(Long reportId) {
-        // 다운로드 요청 수 증가
-        reportDownloadTotalCounter.increment();
-
-        return reportDownloadTimer.record(() -> {
+        return businessReportDownloadTimer.record(() -> {
             try {
                 Report report = reportRepository.findById(reportId)
                         .orElseThrow(() -> new ReportNotFoundException("리포트를 찾을 수 없습니다: " + reportId));
@@ -130,7 +122,7 @@ public class ReportServiceImpl implements ReportService {
                 LocalDateTime expiryTime = LocalDateTime.now().plusMinutes(30);
 
                 // 다운로드 성공 수 증가
-                reportDownloadSuccessCounter.increment();
+                businessReportDownloadSuccessCounter.increment();
 
                 return new DownloadResponse(
                         excelResult.getFileUrl(),
@@ -139,7 +131,8 @@ public class ReportServiceImpl implements ReportService {
                 );
             } catch (Exception e) {
                 // 다운로드 실패 수 증가
-                reportDownloadFailureCounter.increment();
+                businessReportDownloadFailureCounter.increment();
+                log.error("리포트 다운로드 비즈니스 로직 처리 중 오류 발생: {}", e.getMessage(), e);
                 throw e;
             }
         });

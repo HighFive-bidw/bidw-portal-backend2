@@ -15,6 +15,59 @@ import java.time.Duration;
 @Configuration
 public class MetricsConfig {
 
+    // HTTP 계층 메트릭 (컨트롤러용)
+    @Bean
+    public Timer httpReportDownloadTimer(MeterRegistry registry) {
+        return Timer.builder("http.report.download.seconds")
+                .description("HTTP 리포트 다운로드 요청 처리 시간")
+                .publishPercentiles(0.5, 0.95, 0.99)
+                .publishPercentileHistogram()
+                .sla(
+                        Duration.ofMillis(500),
+                        Duration.ofSeconds(1),
+                        Duration.ofSeconds(2),
+                        Duration.ofSeconds(5)
+                )
+                .register(registry);
+    }
+
+    @Bean
+    public Counter httpReportDownloadTotalCounter(MeterRegistry registry) {
+        return Counter.builder("http.report.download.total")
+                .description("총 HTTP 리포트 다운로드 요청 수")
+                .register(registry);
+    }
+
+    // 비즈니스 로직 계층 메트릭 (서비스용)
+    @Bean
+    public Timer businessReportDownloadTimer(MeterRegistry registry) {
+        return Timer.builder("business.report.download.seconds")
+                .description("비즈니스 로직 리포트 다운로드 처리 시간")
+                .publishPercentiles(0.5, 0.95, 0.99)
+                .publishPercentileHistogram()
+                .sla(
+                        Duration.ofMillis(300),
+                        Duration.ofMillis(700),
+                        Duration.ofSeconds(1),
+                        Duration.ofSeconds(3)
+                )
+                .register(registry);
+    }
+
+    @Bean
+    public Counter businessReportDownloadSuccessCounter(MeterRegistry registry) {
+        return Counter.builder("business.report.download.success.total")
+                .description("성공한 비즈니스 리포트 다운로드 수")
+                .register(registry);
+    }
+
+    @Bean
+    public Counter businessReportDownloadFailureCounter(MeterRegistry registry) {
+        return Counter.builder("business.report.download.failure.total")
+                .description("실패한 비즈니스 리포트 다운로드 수")
+                .register(registry);
+    }
+
     // Valet Key 패턴 관련 메트릭
     @Bean
     public Timer sasTokenGenerationTimer(MeterRegistry registry) {

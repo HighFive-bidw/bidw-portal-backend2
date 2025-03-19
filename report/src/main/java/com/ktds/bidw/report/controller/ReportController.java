@@ -28,29 +28,23 @@ import java.util.List;
 public class ReportController {
 
     private final ReportService reportService;
-    private final Timer downloadTimer;
-    private final Counter downloadCounter;
+    private final Timer httpReportDownloadTimer;
+    private final Counter httpReportDownloadTotalCounter;
 
     /**
      * 생성자를 통해 의존성 및 메트릭을 초기화합니다.
      *
      * @param reportService 리포트 서비스
-     * @param meterRegistry 메트릭 레지스트리
+     * @param httpReportDownloadTimer HTTP 다운로드 타이머
+     * @param httpReportDownloadTotalCounter HTTP 다운로드 카운터
      */
-    public ReportController(ReportService reportService, MeterRegistry meterRegistry) {
+    public ReportController(
+            ReportService reportService,
+            Timer httpReportDownloadTimer,
+            Counter httpReportDownloadTotalCounter) {
         this.reportService = reportService;
-
-        // 다운로드 처리 시간 측정을 위한 타이머 메트릭 생성
-        this.downloadTimer = Timer.builder("http_report_download_seconds")
-                .description("리포트 다운로드 요청 처리 시간")
-                .tag("outcome", "success")
-                .publishPercentiles(0.5, 0.95, 0.99) // Grafana 대시보드에서 사용하는 백분위수
-                .register(meterRegistry);
-
-        // 다운로드 요청 수 집계를 위한 카운터 메트릭 생성
-        this.downloadCounter = Counter.builder("report_download_total")
-                .description("총 리포트 다운로드 요청 수")
-                .register(meterRegistry);
+        this.httpReportDownloadTimer = httpReportDownloadTimer;
+        this.httpReportDownloadTotalCounter = httpReportDownloadTotalCounter;
     }
 
     /**
@@ -96,7 +90,7 @@ public class ReportController {
 
     /**
      * 특정 리포트를 Excel 형식으로 다운로드합니다.
-     * 다운로드 요청 시간을 측정하고 요청 횟수를 집계합니다.
+     * HTTP 요청 처리 시간 및 요청 횟수를 측정합니다.
      *
      * @param reportId 리포트 ID
      * @return 다운로드 정보
@@ -107,19 +101,18 @@ public class ReportController {
             @Parameter(description = "리포트 ID", required = true)
             @PathVariable Long reportId) {
 
-        // 타이머로 다운로드 처리 시간 측정
-        DownloadResponse response = downloadTimer.record(() -> {
+        // HTTP 요청 수 증가
+        httpReportDownloadTotalCounter.increment();
+
+        // HTTP 계층 타이머 측정 시작
+        return httpReportDownloadTimer.record(() -> {
             try {
-                DownloadResponse result = reportService.downloadReport(reportId);
-                // 성공적인 다운로드 요청 횟수 증가
-                downloadCounter.increment();
-                return result;
+                DownloadResponse response = reportService.downloadReport(reportId);
+                return ResponseEntity.ok(response);
             } catch (Exception e) {
-                log.error("리포트 다운로드 중 오류 발생: {}", e.getMessage(), e);
+                log.error("리포트 다운로드 HTTP 처리 중 오류 발생: {}", e.getMessage(), e);
                 throw e;
             }
         });
-
-        return ResponseEntity.ok(response);
     }
 }

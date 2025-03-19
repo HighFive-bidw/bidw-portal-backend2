@@ -70,6 +70,7 @@ management:
         azure.storage.blob.operation: true
         excel.generation: true
         report.download: true
+        http_report_download_seconds: true
       sla:
         http.server.requests: 100ms, 500ms, 1000ms, 2000ms
         azure.storage.blob.operation: 50ms, 100ms, 200ms, 500ms
