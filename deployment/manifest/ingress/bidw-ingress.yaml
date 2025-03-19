@@ -12,20 +12,20 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: bidw-auth
+            name: auth
             port:
               number: 80
       - path: /api/reports
         pathType: Prefix
         backend:
           service:
-            name: bidw-report
+            name: report
             port:
               number: 80
       - path: /api/subscriptions
         pathType: Prefix
         backend:
           service:
-            name: bidw-subscription
+            name: subscription
             port:
               number: 80
