@@ -57,10 +57,21 @@ management:
   endpoint:
     health:
       show-details: always
-      probes:
+  metrics:
+    tags:
+      app: ${spring.application.name}
+      instance: ${HOSTNAME:localhost}:${server.port}
+    export:
+      prometheus:
         enabled: true
-  health:
-    livenessState:
-      enabled: true
-    readinessState:
-      enabled: true
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        azure.storage.blob.operation: true
+        excel.generation: true
+        report.download: true
+      sla:
+        http.server.requests: 100ms, 500ms, 1000ms, 2000ms
+        azure.storage.blob.operation: 50ms, 100ms, 200ms, 500ms
+        excel.generation: 200ms, 500ms, 1000ms, 2000ms
+        report.download: 500ms, 1000ms, 2000ms, 5000ms
