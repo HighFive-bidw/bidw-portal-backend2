@@ -36,6 +36,7 @@ public class ExcelServiceImpl implements ExcelService {
     // 메트릭 추가
     private final Timer excelGenerationTimer;
     private final Counter excelFileSizeCounter;
+    private final Timer excelFileStorageTimer;
 
     /**
      * 생성자를 통해 의존성을 주입받습니다.
@@ -44,10 +45,12 @@ public class ExcelServiceImpl implements ExcelService {
     public ExcelServiceImpl(
             FileStorage fileStorage,
             @Qualifier("excelGenerationTimer") Timer excelGenerationTimer,
-            @Qualifier("excelFileSizeCounter") Counter excelFileSizeCounter) {
+            @Qualifier("excelFileSizeCounter") Counter excelFileSizeCounter,
+            @Qualifier("excelFileStorageTimer") Timer excelFileStorageTimer) {
         this.fileStorage = fileStorage;
         this.excelGenerationTimer = excelGenerationTimer;
         this.excelFileSizeCounter = excelFileSizeCounter;
+        this.excelFileStorageTimer = excelFileStorageTimer;
     }
 
     /**
@@ -129,15 +132,24 @@ public class ExcelServiceImpl implements ExcelService {
                 workbook.write(outputStream);
                 byte[] excelBytes = outputStream.toByteArray();
 
-                // 파일 크기 메트릭 추가
+                // 파일 크기 메트릭 증가
                 excelFileSizeCounter.increment(excelBytes.length);
+                log.info("Excel file generated with size: {} bytes", excelBytes.length);
 
                 // 파일명 생성
                 String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
                 String fileName = reportName.replaceAll("\\s+", "_") + "_" + timestamp + ".xlsx";
 
                 // 파일 저장소에 저장하고 URL 반환 (Claim Check 패턴 적용)
-                String fileUrl = fileStorage.storeFile(excelBytes, fileName);
+                // 파일 저장 시간 측정을 위한 타이머 추가
+                String fileUrl = excelFileStorageTimer.record(() -> {
+                    try {
+                        return fileStorage.storeFile(excelBytes, fileName);
+                    } catch (Exception e) {
+                        log.error("Error storing Excel file: {}", e.getMessage(), e);
+                        throw e;
+                    }
+                });
 
                 return new ExcelResult(fileUrl, fileName);
             } catch (IOException e) {

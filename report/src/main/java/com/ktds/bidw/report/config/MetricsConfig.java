@@ -15,6 +15,30 @@ import java.time.Duration;
 @Configuration
 public class MetricsConfig {
 
+    // API Gateway 요청 메트릭
+    @Bean
+    public Counter apiGatewayRequestsCounter(MeterRegistry registry) {
+        return Counter.builder("api_gateway_requests_total")
+                .description("API Gateway를 통한 총 요청 수")
+                .register(registry);
+    }
+
+    // Excel 파일 저장 시간 측정 타이머
+    @Bean
+    public Timer excelFileStorageTimer(MeterRegistry registry) {
+        return Timer.builder("excel_file_storage_time_seconds")
+                .description("Excel 파일 저장 소요 시간")
+                .publishPercentiles(0.5, 0.95, 0.99)
+                .publishPercentileHistogram()
+                .sla(
+                        Duration.ofMillis(50),
+                        Duration.ofMillis(100),
+                        Duration.ofMillis(200),
+                        Duration.ofMillis(500)
+                )
+                .register(registry);
+    }
+
     // HTTP 계층 메트릭 (컨트롤러용)
     @Bean
     public Timer reportDownloadTimer(MeterRegistry registry) {

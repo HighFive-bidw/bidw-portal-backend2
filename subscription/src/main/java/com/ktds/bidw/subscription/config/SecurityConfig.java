@@ -1,5 +1,7 @@
 package com.ktds.bidw.subscription.config;
 
+import com.ktds.bidw.common.filter.MetricsFilter;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -12,6 +14,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -39,16 +42,17 @@ public class SecurityConfig {
      * @throws Exception 보안 설정 중 오류 발생 시
      */
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, MetricsFilter metricsFilter) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                                .requestMatchers("/**").permitAll()
-//                .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/api-docs/**", "/actuator/**").permitAll()
-                                .anyRequest().authenticated()
-                );
+                        .requestMatchers("/**").permitAll()
+                        .anyRequest().authenticated()
+                )
+                // MetricsFilter 추가
+                .addFilterBefore(metricsFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
@@ -73,6 +77,11 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
+    }
+
+    @Bean
+    public MetricsFilter metricsFilter(MeterRegistry meterRegistry) {
+        return new MetricsFilter(meterRegistry);
     }
 }
 
