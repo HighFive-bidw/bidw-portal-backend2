@@ -4,6 +4,8 @@ import com.ktds.bidw.report.dto.DownloadResponse;
 import com.ktds.bidw.report.dto.ReportDetailDTO;
 import com.ktds.bidw.report.dto.ReportListDTO;
 import com.ktds.bidw.report.service.ReportService;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -15,6 +17,11 @@ import java.time.LocalDate;
 import java.util.List;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PathVariable; // 경로 변수 사용시
+// 타이머 및 카운터 관련 import
+import io.micrometer.core.instrument.Counter;
+
+
+
 
 /**
  * 리포트 관련 API 컨트롤러입니다.
@@ -26,6 +33,9 @@ import org.springframework.web.bind.annotation.PathVariable; // 경로 변수 �
 public class ReportController {
 
     private final ReportService reportService;
+    private final MeterRegistry meterRegistry;
+    private final Timer downloadTimer;
+    private final Counter downloadCounter;
     
     /**
      * 모든 리포트 목록을 조회합니다.
@@ -87,7 +97,32 @@ public class ReportController {
     public ResponseEntity<DownloadResponse> downloadReport(
             @Parameter(description = "리포트 ID", required = true)
             @PathVariable Long reportId) {
-        DownloadResponse downloadResponse = reportService.downloadReport(reportId);
-        return ResponseEntity.ok(downloadResponse);
+        DownloadResponse response = downloadTimer.record(() -> {
+            DownloadResponse result = reportService.downloadReport(reportId);
+            downloadCounter.increment();
+            return result;
+        });
+
+        return ResponseEntity.ok(response);
     }
+
+
+    public ReportController(ReportService reportService, MeterRegistry meterRegistry) {
+        this.reportService = reportService;
+        this.meterRegistry = meterRegistry;
+
+        // 타이머 메트릭 생성 (Grafana 대시보드에서 사용하는 이름과 일치)
+        this.downloadTimer = Timer.builder("http_report_download_seconds")
+                .description("리포트 다운로드 처리 시간")
+                .tag("outcome", "success")
+                .publishPercentiles(0.5, 0.95, 0.99) // Prometheus에 백분위수 히스토그램 게시
+                .register(meterRegistry);
+
+        // 카운터 메트릭 생성
+        this.downloadCounter = Counter.builder("report_download_total")
+                .description("총 리포트 다운로드 요청 수")
+                .register(meterRegistry);
+    }
+
+
 }
