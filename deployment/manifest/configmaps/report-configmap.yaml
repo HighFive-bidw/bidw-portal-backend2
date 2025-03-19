@@ -4,7 +4,7 @@ metadata:
   name: bidw-report-config
 data:
   SERVER_PORT: "8081"
-  POSTGRES_HOST: "postgres-jreport-external"
+  POSTGRES_HOST: "postgres-jreport-postgresql"
   POSTGRES_PORT: "5432"
   POSTGRES_DB: "reportdb"
   AZURE_CONTAINER_REPORTS: "reports"

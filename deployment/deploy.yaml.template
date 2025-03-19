@@ -18,7 +18,7 @@ metadata:
   namespace: ${namespace}
 data:
   POSTGRES_DB: authdb
-  POSTGRES_HOST: postgres-auth-postgresql-primary
+  POSTGRES_HOST: postgres-auth-postgresql
   POSTGRES_PORT: '5432'
   SERVER_PORT: '8080'
 
@@ -33,7 +33,7 @@ data:
   FILE_EXPIRY_TIME: '30'
   FILE_STORAGE_LOCATION: ./reports
   POSTGRES_DB: reportdb
-  POSTGRES_HOST: postgres-jreport-postgresql-primary
+  POSTGRES_HOST: postgres-jreport-postgresql
   POSTGRES_PORT: '5432'
   SERVER_PORT: '8081'
   TOKEN_CLEANUP_CRON: 0 0 * * * *
@@ -46,7 +46,7 @@ metadata:
   namespace: ${namespace}
 data:
   POSTGRES_DB: subscriptiondb
-  POSTGRES_HOST: postgres-jsubscription-postgresql-primary
+  POSTGRES_HOST: postgres-jsubscription-postgresql
   POSTGRES_PORT: '5432'
   REPORT_SERVICE_URL: http://report
   SERVER_PORT: '8082'
