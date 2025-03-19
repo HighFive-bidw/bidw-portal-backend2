@@ -7,6 +7,7 @@ import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.azure.storage.blob.sas.BlobSasPermission;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
 import com.ktds.bidw.report.exception.FileStorageException;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -34,6 +35,7 @@ public class FileStorageImpl implements FileStorage {
     private final Timer sasTokenGenerationTimer;
     private final Counter sasTokenIssuedCounter;
     private final Timer blobStorageOperationTimer;
+    private final MeterRegistry meterRegistry;
 
     /**
      * 생성자를 통해 Azure Storage 연결 설정을 초기화합니다.
@@ -48,7 +50,8 @@ public class FileStorageImpl implements FileStorage {
             @Value("${file.storage.expiry-time-minutes}") int expiryTimeInMinutes,
             @Qualifier("sasTokenGenerationTimer") Timer sasTokenGenerationTimer,
             @Qualifier("sasTokenIssuedCounter") Counter sasTokenIssuedCounter,
-            @Qualifier("blobStorageOperationTimer") Timer blobStorageOperationTimer) {
+            @Qualifier("blobStorageOperationTimer") Timer blobStorageOperationTimer,
+            MeterRegistry meterRegistry) {
         
         this.blobServiceClient = new BlobServiceClientBuilder()
                 .connectionString(connectionString)
@@ -65,6 +68,7 @@ public class FileStorageImpl implements FileStorage {
         this.sasTokenGenerationTimer = sasTokenGenerationTimer;
         this.sasTokenIssuedCounter = sasTokenIssuedCounter;
         this.blobStorageOperationTimer = blobStorageOperationTimer;
+        this.meterRegistry = meterRegistry;
     }
     
     /**
@@ -76,22 +80,20 @@ public class FileStorageImpl implements FileStorage {
      */
     @Override
     public String storeFile(byte[] data, String fileName) {
-        return blobStorageOperationTimer.record(() -> {
-            try {
-                BlobClient blobClient = containerClient.getBlobClient(fileName);
-
-                // 파일 업로드
-                blobClient.upload(new ByteArrayInputStream(data), data.length, true);
-
-                log.info("파일이 성공적으로 업로드되었습니다: {}", fileName);
-
-                // SAS URL 반환
-                return generateSignedUrl(fileName);
-            } catch (Exception e) {
-                log.error("파일 업로드 중 오류가 발생했습니다", e);
-                throw new FileStorageException("파일 저장에 실패했습니다: " + e.getMessage());
-            }
-        });
+        // Timer.Sample을 사용하여 직접 시간 측정
+        Timer.Sample sample = Timer.start(meterRegistry);
+        try {
+            BlobClient blobClient = containerClient.getBlobClient(fileName);
+            blobClient.upload(new ByteArrayInputStream(data), data.length, true);
+            log.info("파일이 성공적으로 업로드되었습니다: {}", fileName);
+            return generateSignedUrl(fileName);
+        } catch (Exception e) {
+            log.error("파일 업로드 중 오류가 발생했습니다", e);
+            throw new FileStorageException("파일 저장에 실패했습니다: " + e.getMessage());
+        } finally {
+            // 타이머 종료 및 메트릭 기록
+            sample.stop(meterRegistry.timer("excel_file_storage_time_seconds"));
+        }
     }
     
     /**
