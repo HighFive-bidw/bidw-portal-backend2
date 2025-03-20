@@ -19,10 +19,15 @@ postgres_password=Passw0rd
 azure_storage_connection_string=DefaultEndpointsProtocol=https;AccountName=high5bidwstorage;AccountKey=ytnU1SOxqHouIG5WB0vTaD9phcUIgT/sSX/6vE5YlN3rAuFkhct3ijEK4B6hNOocAQl0uSf6ZRKI+AStzzycdw==;BlobEndpoint=https://high5bidwstorage.blob.core.windows.net/;
 
 # Resource Settings
-resources_requests_cpu=256m
-resources_requests_memory=256Mi
-resources_limits_cpu=1024m
-resources_limits_memory=1024Mi
+#resources_requests_cpu=256m
+#resources_requests_memory=256Mi
+#resources_limits_cpu=1024m
+#resources_limits_memory=1024Mi
 
+# 부하 테스트용 Resource Settings
+resources_requests_cpu=50m
+resources_requests_memory=200Mi
+resources_limits_cpu=150m
+resources_limits_memory=450Mi
 
 JAVA_OPTS=-Djava.awt.headless=true
