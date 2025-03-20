@@ -26,8 +26,8 @@ azure_storage_connection_string=DefaultEndpointsProtocol=https;AccountName=high5
 
 # 부하 테스트용 Resource Settings
 resources_requests_cpu=50m
-resources_requests_memory=200Mi
+resources_requests_memory=256Mi
 resources_limits_cpu=150m
-resources_limits_memory=450Mi
+resources_limits_memory=1024Mi
 
 JAVA_OPTS=-Djava.awt.headless=true
