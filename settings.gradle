@@ -4,3 +4,5 @@ include 'common'
 include 'auth'
 include 'report'
 include 'subscription'
+include 'aiquery'
+
